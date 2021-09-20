@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 
 -- | Google Firebase Cloud Messaging model / JSON conversions.
@@ -29,25 +29,22 @@ module FCMClient.Types (
 ) where
 
 
-import           Control.Lens
-import           Data.Aeson (encode, decode)
-import           Data.Aeson.Types as J
-import           Data.Default.Class
-import           Data.List.NonEmpty (nonEmpty)
-import           Data.Maybe
-import           Data.Scientific (Scientific)
-import           Data.String
-import           Data.Text (Text)
+import Control.Lens
+import Data.Aeson (decode, encode)
+import Data.Aeson.Types as J (FromJSON (parseJSON), ToJSON (toEncoding, toJSON),
+                              Value (Bool, Number, String))
+import Data.Default.Class (Default (..))
+import Data.List.NonEmpty (nonEmpty)
+import Data.Maybe (fromMaybe)
+import Data.Scientific (Scientific)
+import Data.String (IsString (..))
+import Data.Text (Text)
+import FCMClient.JSON.Types hiding (fcmBodyLocArgs, fcmContentAvailable, fcmDelayWhileIdle,
+                             fcmDryRun, fcmPriority, fcmTitleLocArgs)
+
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as TE
-import           FCMClient.JSON.Types hiding ( fcmBodyLocArgs
-                                             , fcmContentAvailable
-                                             , fcmDelayWhileIdle
-                                             , fcmDryRun
-                                             , fcmPriority
-                                             , fcmTitleLocArgs
-                                             )
 import qualified FCMClient.JSON.Types as J
 
 
@@ -117,8 +114,8 @@ fcmPriority :: (Applicative f)
 fcmPriority = J.fcmPriority . prism' fcmPriorityToText (Just .textToFcmPriority)
   where fcmPriorityToText FCMPriorityNormal = Nothing
         fcmPriorityToText FCMPriorityHigh   = Just "high"
-        textToFcmPriority (Just "high")     = FCMPriorityHigh
-        textToFcmPriority _                 = FCMPriorityNormal
+        textToFcmPriority (Just "high") = FCMPriorityHigh
+        textToFcmPriority _             = FCMPriorityNormal
 
 
 

@@ -15,6 +15,7 @@ module FCMClient.JSON.Types (
   FCMData
 , FCMNotification
 , fcmTitle
+, fcmSubtitle
 , fcmBody
 , fcmAndroidChannelId
 , fcmIcon
@@ -82,17 +83,17 @@ module FCMClient.JSON.Types (
 ) where
 
 
-import           Control.Applicative
-import           Control.Lens.TH
-import           Data.Aeson
-import           Data.Aeson.Casing
-import           Data.Aeson.TH
-import           Data.Aeson.Types
-import           Data.Default.Class
-import           Data.List.NonEmpty (NonEmpty)
-import           Data.Map (Map)
-import           Data.Text (Text)
-import           Network.HTTP.Types (Status)
+import Control.Applicative
+import Control.Lens.TH (makeLenses, makePrisms)
+import Data.Aeson (FromJSON (..), Options (..), ToJSON (..), Value (..), object, (.:))
+import Data.Aeson.Casing (aesonDrop, aesonPrefix, snakeCase)
+import Data.Aeson.TH (deriveJSON)
+import Data.Aeson.Types (typeMismatch)
+import Data.Default.Class (Default (..))
+import Data.List.NonEmpty (NonEmpty)
+import Data.Map (Map)
+import Data.Text (Text)
+import Network.HTTP.Types (Status)
 
 
 type FCMData = Map Text Text
@@ -105,11 +106,15 @@ data FCMNotification =
 
     -- | title  Optional, string
     -- Indicates notification title. This field is not visible on iOS phones and tablets.
-    _fcmTitle :: !(Maybe Text)
+    _fcmTitle            :: !(Maybe Text)
+
+    -- | subtitle Optional, string
+    -- IOS: Indicates the notification's subtitle.
+  , _fcmSubtitle         :: !(Maybe Text)
 
     -- | body  Optional, string
     -- Indicates notification body text.
-  , _fcmBody :: !(Maybe Text)
+  , _fcmBody             :: !(Maybe Text)
 
     -- | android_channel_id  Optional, string
     -- The notification's channel id (new in Android O). <https://developer.android.com/preview/features/notification-channels.html>
@@ -124,7 +129,7 @@ data FCMNotification =
 
     -- | icon   Optional, string
     -- Android: Indicates notification icon. Sets value to myicon for drawable resource myicon.
-  , _fcmIcon :: !(Maybe Text)
+  , _fcmIcon             :: !(Maybe Text)
 
     -- | sound  Optional, string
     -- IOS: Indicates a sound to play when the device receives a notification. Sound
@@ -134,7 +139,7 @@ data FCMNotification =
     -- Android: Indicates a sound to play when the device receives a
     -- notification. Supports default or the filename of a sound resource
     -- bundled in the app. Sound files must reside in /res/raw/.
-  , _fcmSound :: !(Maybe Text)
+  , _fcmSound            :: !(Maybe Text)
 
     -- | tag   Optional, string
     -- Android: Indicates whether each notification results in a new entry in the
@@ -142,15 +147,15 @@ data FCMNotification =
     -- notification. If set, and a notification with the same tag is already being
     -- shown, the new notification replaces the existing one in the notification
     -- drawer.
-  , _fcmTag :: !(Maybe Text)
+  , _fcmTag              :: !(Maybe Text)
 
     -- | color   Optional, string
     -- Android: Indicates color of the icon, expressed in #rrggbb format
-  , _fcmColor:: !(Maybe Text)
+  , _fcmColor            :: !(Maybe Text)
 
     -- | badge  Optional, string
     -- Indicates the badge on the client app home icon.
-  , _fcmBadge :: !(Maybe Text)
+  , _fcmBadge            :: !(Maybe Text)
 
     -- | click_action  Optional, string
     -- IOS: Indicates the action associated with a user click on the notification.
@@ -158,14 +163,14 @@ data FCMNotification =
     -- Android: Indicates the action associated with a user click on the
     -- notification. When this is set, an activity with a matching intent
     -- filter is launched when user clicks the notification.
-  , _fcmClickAction :: !(Maybe Text)
+  , _fcmClickAction      :: !(Maybe Text)
 
     -- | body_loc_key  Optional, string
     -- IOS: Indicates the key to the body string for localization. Corresponds to
     -- "loc-key" in the APNs payload.
     -- Android: Indicates the key to the body string for localization. Use the
     -- key in the app's string resources when populating this value.
-  , _fcmBodyLocKey :: !(Maybe Text)
+  , _fcmBodyLocKey       :: !(Maybe Text)
 
     -- | body_loc_args  Optional, JSON array as string
     -- IOS: Indicates the string value to replace format specifiers in the body string
@@ -173,14 +178,14 @@ data FCMNotification =
     -- Android: Indicates the string value to replace format specifiers in the
     -- body string for localization. For more information, see Formatting and
     -- Styling.
-  , _fcmBodyLocArgs :: !(Maybe Text)
+  , _fcmBodyLocArgs      :: !(Maybe Text)
 
     -- | title_loc_key  Optional, string
     -- IOS: Indicates the key to the title string for localization. Corresponds to
     -- "title-loc-key" in the APNs payload.
     -- Android: Indicates the key to the title string for localization. Use the
     -- key in the app's string resources when populating this value.
-  , _fcmTitleLocKey :: !(Maybe Text)
+  , _fcmTitleLocKey      :: !(Maybe Text)
 
 
     -- | title_loc_args  Optional, JSON array as string
@@ -190,16 +195,29 @@ data FCMNotification =
     -- Android: Indicates the string value to replace format specifiers in the
     -- title string for localization. For more information, see Formatting
     -- strings.
-  , _fcmTitleLocArgs:: !(Maybe Text)
+  , _fcmTitleLocArgs     :: !(Maybe Text)
   } deriving (Eq, Show)
 
 $(makeLenses ''FCMNotification)
 $(deriveJSON (aesonPrefix snakeCase) { omitNothingFields = True } ''FCMNotification)
 
-
 instance Default FCMNotification where
-  def = FCMNotification Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
-
+  def = FCMNotification
+    { _fcmTitle = Nothing
+    , _fcmSubtitle = Nothing
+    , _fcmBody = Nothing
+    , _fcmAndroidChannelId = Nothing
+    , _fcmIcon = Nothing
+    , _fcmSound = Nothing
+    , _fcmTag = Nothing
+    , _fcmColor = Nothing
+    , _fcmBadge = Nothing
+    , _fcmClickAction = Nothing
+    , _fcmBodyLocKey = Nothing
+    , _fcmBodyLocArgs = Nothing
+    , _fcmTitleLocKey = Nothing
+    , _fcmTitleLocArgs = Nothing
+    }
 
 -- | FCM Message as defined in https://firebase.google.com/docs/cloud-messaging/http-server-ref#send-downstream
 -- Abstract type, use lens API to access fields. Record fields are kept private and used for JSON conversion.
@@ -209,7 +227,7 @@ data FCMMessage =
     -- This parameter specifies the recipient of a message.
     -- The value must be a registration token, notification key, or topic.
     -- Do not set this field when sending to multiple topics. See condition.
-    _fcmTo :: !(Maybe Text)
+    _fcmTo                    :: !(Maybe Text)
 
     -- | registration_ids String array
     -- This parameter specifies a list of devices (registration tokens, or IDs)
@@ -218,14 +236,14 @@ data FCMMessage =
     -- Use this parameter only for multicast messaging, not for single
     -- recipients. Multicast messages (sending to more than 1 registration tokens) are
     -- allowed using HTTP JSON format only.
-  , _fcmRegistrationIds :: !(Maybe (NonEmpty Text))
+  , _fcmRegistrationIds       :: !(Maybe (NonEmpty Text))
 
     -- | condition  Optional, string
     -- This parameter specifies a logical expression of conditions that determine
     -- the message target.  Supported condition: Topic, formatted as "'yourTopic' in
     -- topics". This value is case-insensitive.  Supported operators: &&, ||. Maximum
     -- two operators per topic message supported.
-  , _fcmCondition :: !(Maybe Text)
+  , _fcmCondition             :: !(Maybe Text)
 
     -- | collapse_key  Optional, string
     -- This parameter identifies a group of messages (e.g., with collapse_key:
@@ -238,7 +256,7 @@ data FCMMessage =
     -- This means a FCM connection server can simultaneously store 4 different
     -- send-to-sync messages per client app. If you exceed this number, there is no
     -- guarantee which 4 collapse keys the FCM connection server will keep.
-  , _fcmCollapseKey :: !(Maybe Text)
+  , _fcmCollapseKey           :: !(Maybe Text)
 
     -- | priority  Optional, string
     -- Sets the priority of the message. Valid values are "normal" and "high." On
@@ -250,26 +268,26 @@ data FCMMessage =
     -- sent immediately, and the app can wake a sleeping device and open a network
     -- connection to your server.  For more information, see Setting the priority
     -- of a message.
-  , _fcmPriority :: !(Maybe Text)
+  , _fcmPriority              :: !(Maybe Text)
 
     -- | content_available  Optional, JSON boolean
     -- On iOS, use this field to represent content-available in the APNS
     -- payload. When a notification or message is sent and this is set to true,
     -- an inactive client app is awoken. On Android, data messages wake the app
     -- by default. On Chrome, currently not supported.
-  , _fcmContentAvailable :: !(Maybe Bool)
+  , _fcmContentAvailable      :: !(Maybe Bool)
 
     -- | delay_while_idle  Optional, JSON boolean
     -- When this parameter is set to true, it indicates that the message should
     -- not be sent until the device becomes active. The default value is false.
-  , _fcmDelayWhileIdle :: !(Maybe Bool)
+  , _fcmDelayWhileIdle        :: !(Maybe Bool)
 
     -- | time_to_live  Optional, JSON number
     -- This parameter specifies how long (in seconds) the message should be kept in
     -- FCM storage if the device is offline. The maximum time to live supported is
     -- 4 weeks, and the default value is 4 weeks. For more information, see Setting
     -- the lifespan of a message.
-  , _fcmTimeToLive :: !(Maybe Word)
+  , _fcmTimeToLive            :: !(Maybe Word)
 
     -- | restricted_package_name  Optional, string
     -- This parameter specifies the package name of the application where the
@@ -279,7 +297,7 @@ data FCMMessage =
     -- | dry_run  Optional, JSON boolean
     -- This parameter, when set to true, allows developers to test a request
     -- without actually sending a message. The default value is false.
-  , _fcmDryRun :: !(Maybe Bool)
+  , _fcmDryRun                :: !(Maybe Bool)
 
   -- Payload
 
@@ -295,14 +313,14 @@ data FCMMessage =
     --  as collapse_key).  Values in string types are recommended. You have to
     --  convert values in objects or other non-string data types (e.g., integers or
     --  booleans) to string.
-  , _fcmData :: !(Maybe FCMData)
+  , _fcmData                  :: !(Maybe FCMData)
 
     -- | notification  Optional, JSON object
     -- This parameter specifies the predefined, user-visible key-value pairs of
     -- the notification payload. See Notification payload support for detail.
     -- For more information about notification message and data message
     -- options, see Payload.
-  , _fcmNotification :: !(Maybe FCMNotification)
+  , _fcmNotification          :: !(Maybe FCMNotification)
   } deriving (Eq, Show)
 
 
@@ -374,7 +392,7 @@ instance FromJSON FCMError where
 data FCMMessageResponseResultOk =
   FCMMessageResponseResultOkPayload {
     -- | String specifying a unique ID for each successfully processed message.
-    _fcmMessageId :: !Text
+    _fcmMessageId      :: !Text
 
     -- | Optional string specifying the canonical registration token for the
     -- client app that the message was processed and sent to. Sender should use
@@ -410,13 +428,13 @@ instance FromJSON FCMMessageResponseResult where
 data FCMMessageResponse =
   FCMMessageResponsePayload {
     -- | Required, number  Unique ID (number) identifying the multicast message.
-    _fcmMulticastId :: !Integer
+    _fcmMulticastId  :: !Integer
 
     -- | Required, number  Number of messages that were processed without an error.
-  , _fcmSuccess :: !Integer
+  , _fcmSuccess      :: !Integer
 
     -- | Required, number  Number of messages that could not be processed.
-  , _fcmFailure :: !Integer
+  , _fcmFailure      :: !Integer
 
     -- | Required, number  Number of results that contain a canonical
     -- registration token. See the registration overview for more discussion of
@@ -427,7 +445,7 @@ data FCMMessageResponse =
     -- the messages processed. The objects are listed in the same order as the
     -- request (i.e., for each registration ID in the request, its result is
     -- listed in the same index in the response).
-  , _fcmResults :: !(Maybe (NonEmpty FCMMessageResponseResult))
+  , _fcmResults      :: !(Maybe (NonEmpty FCMMessageResponseResult))
   } deriving (Eq, Show)
 
 $(makeLenses ''FCMMessageResponse)
@@ -478,10 +496,10 @@ $(makePrisms ''FCMResponseBody)
 
 instance ToJSON FCMResponseBody where
   toJSON (FCMMessageResponse m) = toJSON m
-  toJSON (FCMTopicResponse t) = toJSON t
+  toJSON (FCMTopicResponse t)   = toJSON t
 
   toEncoding (FCMMessageResponse m) = toEncoding m
-  toEncoding (FCMTopicResponse t) = toEncoding t
+  toEncoding (FCMTopicResponse t)   = toEncoding t
 
 instance FromJSON FCMResponseBody where
   parseJSON o =  (FCMMessageResponse <$> parseJSON o)
@@ -507,7 +525,7 @@ data FCMClientError =
     -- Retry-After header included in the response. Application servers must
     -- implement exponential back-off.
   | FCMServerError              { _fcmErrorHttpStatus :: !Status
-                                , _fcmErrorMessage :: !Text
+                                , _fcmErrorMessage    :: !Text
                                 }
 
     -- | Client couldn't parse JSON response from server.

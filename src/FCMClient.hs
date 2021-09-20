@@ -10,17 +10,18 @@ module FCMClient (
 ) where
 
 
-import           Control.Exception
+import Control.Exception (handle)
+import FCMClient.Types (FCMClientError (..), FCMResult (..))
+import Network.HTTP.Client (HttpException, Request (..), RequestBody (..), Response (..))
+import Network.HTTP.Simple (httpLBS)
+import Network.HTTP.Types (hAuthorization, hContentType, status200, status400, status401,
+                           statusIsServerError)
+
 import qualified Data.Aeson as J
 import qualified Data.ByteString as B
 import qualified Data.ByteString.Lazy as L
-import Data.Monoid ((<>))
 import qualified Data.Text as T
 import qualified Data.Text.Encoding as T
-import           FCMClient.Types
-import           Network.HTTP.Client
-import           Network.HTTP.Simple
-import           Network.HTTP.Types
 
 
 -- | Makes an FCM JSON request, expects a JSON response.

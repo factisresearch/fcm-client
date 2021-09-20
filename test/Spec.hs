@@ -1,29 +1,29 @@
-{-# LANGUAGE OverloadedStrings          #-}
+{-# LANGUAGE OverloadedStrings #-}
 
 module Main
 where
 
 
-import           Control.Lens
-import           Data.Aeson
-import           Data.Default.Class
+import FCMClient.Types
+import Test.Framework (Test, defaultMain, testGroup)
+import Test.Framework.Providers.HUnit (testCase)
+import Test.HUnit ((@?=))
+
 import qualified Data.Map as Map
-import           FCMClient.Types
-import           Test.Framework (defaultMain, testGroup)
-import           Test.Framework.Providers.HUnit
-import           Test.HUnit
 
-
+main :: IO ()
 main = defaultMain tests
 
-tests = [ testGroup "JSON" [
-            testCase "notification"   test_notificationJSON
-          , testCase "message"        test_messageJSON
-          , testCase "response"       test_responseJSON
+tests :: [Test]
+tests = [ testGroup "JSON"
+          [ testCase "notification"   testNotificationJSON
+          , testCase "message"        testMessageJSON
+          , testCase "response"       testResponseJSON
           ]
         ]
 
-test_notificationJSON = do
+testNotificationJSON :: IO ()
+testNotificationJSON = do
   encode (def :: FCMNotification) @?= "{}"
 
   encode (def & fcmBody ?~ "fcm body") @?=
@@ -36,6 +36,9 @@ test_notificationJSON = do
               & fcmTitleLocArgs .~ [] ) @?=
      "{\"title_loc_key\":\"loc title\"}"
 
+  encode (def & fcmSubtitle ?~ "subtitle" ) @?=
+     "{\"subtitle\":\"subtitle\"}"
+
   encode ( def & fcmTitleLocKey ?~ "loc title"
                & fcmTitleLocArgs .~ [FCMLocString "locStr", FCMLocNumber 1.0, FCMLocBool True]
          ) @?= "{\"title_loc_key\":\"loc title\",\"title_loc_args\":\"[\\\"locStr\\\",1,true]\"}"
@@ -46,7 +49,8 @@ test_notificationJSON = do
          ) @?= "{\"body_loc_key\":\"loc body\",\"body_loc_args\":\"[\\\"locStr\\\",1,true]\"}"
 
 
-test_messageJSON = do
+testMessageJSON :: IO ()
+testMessageJSON = do
   encode (def :: FCMMessage) @?= "{}"
 
   encode (def & fcmCollapseKey ?~ "ckey"
@@ -72,8 +76,8 @@ test_messageJSON = do
                                         )
          ) @?= "{\"content_available\":true,\"notification\":{\"title\":\"n title\",\"body\":\"n body\"}}"
 
-
-test_responseJSON = do
+testResponseJSON :: IO ()
+testResponseJSON = do
   encode (FCMMessageResponse def) @?= "{\"multicast_id\":0,\"success\":0,\"failure\":0,\"canonical_ids\":0}"
 
   encode (FCMTopicResponseOk def) @?= "{\"message_id\":0}"

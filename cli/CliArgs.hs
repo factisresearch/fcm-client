@@ -8,7 +8,6 @@ module CliArgs
 import Control.Lens
 import Data.Default.Class
 import Data.List.NonEmpty (nonEmpty)
-import Data.Monoid ((<>))
 import FCMClient.Types
 import Options.Applicative
 import System.Environment
@@ -131,6 +130,12 @@ parseCliCmdSendMessage = CliCmdSendMessage <$>
                   ( long "title"
                  <> short 'T'
                  <> help "notification title text"))
+
+      <..> fmap (set $ fcmWithNotification . fcmSubtitle)
+                (optionalText
+                  ( long "subtitle"
+                 <> short 's'
+                 <> help "IOS: notification subtitle text"))
 
       <..> fmap (set $ fcmWithNotification . fcmBody)
                 (optionalText

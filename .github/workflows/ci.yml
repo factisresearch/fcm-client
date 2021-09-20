@@ -86,7 +86,7 @@ jobs:
         stack build --test --bench --no-run-tests --no-run-benchmarks --only-dependencies
     - name: Build
       run: |
-        stack build --test --bench --no-run-tests --no-run-benchmarks
+        stack build --test --pedantic --bench --no-run-tests --no-run-benchmarks
     - name: Test
       run: |
         stack test
