@@ -37,10 +37,7 @@ parseArgs maybeAuthKey = CliArgs
   <$> strOption
       ( long "auth-key"
      <> short 'k'
-     <> ( case maybeAuthKey
-            of Nothing -> mempty
-               Just ak -> value ak
-        )
+     <> maybe mempty value maybeAuthKey
      <> help "Auth key, defaults to FCM_AUTH_KEY environmental variable." )
   <*> subparser ( command "message" (info (helper <*> parseCliCmdSendMessage)
                                           (progDesc "Send test message."))
@@ -207,7 +204,7 @@ parseCliCmdSendMessage = CliCmdSendMessage <$>
        => f (b -> c)
        -> f (a -> b)
        -> f (a -> c)
-(<..>) bc ab = pure (.) <*> bc <*> ab
+(<..>) bc ab = (.) <$> bc <*> ab
 
 
 runWithArgs:: (CliArgs -> IO ())
