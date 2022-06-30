@@ -8,16 +8,14 @@ license:             BSD-3-Clause
 license-file:        LICENSE
 author:              Andrey Kartashov, Holmusk
 maintainer:          Holmusk <tech@holmusk.com>
-copyright:           2016-2018 Andrey Kartashov, 2018-2019 Holmusk
+copyright:           2016-2018 Andrey Kartashov, 2018-2022 Holmusk
 category:            Library, JSON, FCM
 build-type:          Simple
 extra-doc-files:     README.md
                      CHANGELOG.md
-tested-with:         GHC == 8.4.4
-                     GHC == 8.6.5
-                     GHC == 8.8.4
-                     GHC == 8.10.4
+tested-with:         GHC == 8.8.4
                      GHC == 8.10.7
+                     GHC == 9.0.2
 
 source-repository head
   type:     git
@@ -44,7 +42,7 @@ library
 
   build-depends:      aeson
                     , aeson-casing
-                    , bytestring ^>= 0.10
+                    , bytestring
                     , containers
                     , data-default-class
                     , http-client
@@ -52,7 +50,7 @@ library
                     , http-types
                     , lens
                     , scientific
-                    , text ^>= 1.2
+                    , text
                     , time
 
 executable fcm-client
