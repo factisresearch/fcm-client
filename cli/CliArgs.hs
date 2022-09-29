@@ -99,11 +99,6 @@ parseCliCmdSendMessage = CliCmdSendMessage <$>
                   ( long "content-available"
                  <> help "On iOS, use this field to represent content-available in the APNS payload. When a notification or message is sent and this is set to true, an inactive client app is awoken. On Android, data messages wake the app by default. On Chrome, currently not supported."))
 
-      <..> fmap (set fcmDelayWhileIdle)
-                (switch
-                  ( long "delay-while-idle"
-                 <> help "When this parameter is set to true, it indicates that the message should not be sent until the device becomes active. The default value is false."))
-
       <..> fmap (set fcmTimeToLive)
                 (optional $ option auto
                   ( long "time-to-live"

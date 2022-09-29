@@ -1,5 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable         #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE InstanceSigs               #-}
 {-# LANGUAGE OverloadedStrings          #-}
 {-# LANGUAGE ScopedTypeVariables        #-}
 {-# LANGUAGE TemplateHaskell            #-}
@@ -35,7 +36,6 @@ module FCMClient.JSON.Types (
 , fcmCollapseKey
 , fcmPriority
 , fcmContentAvailable
-, fcmDelayWhileIdle
 , fcmTimeToLive
 , fcmRestrictedPackageName
 , fcmDryRun
@@ -83,12 +83,12 @@ module FCMClient.JSON.Types (
 ) where
 
 
-import Control.Applicative
+import Control.Applicative (Alternative ((<|>)))
 import Control.Lens.TH (makeLenses, makePrisms)
 import Data.Aeson (FromJSON (..), Options (..), ToJSON (..), Value (..), object, (.:))
 import Data.Aeson.Casing (aesonDrop, aesonPrefix, snakeCase)
 import Data.Aeson.TH (deriveJSON)
-import Data.Aeson.Types (typeMismatch)
+import Data.Aeson.Types (Encoding, Parser, typeMismatch)
 import Data.Default.Class (Default (..))
 import Data.List.NonEmpty (NonEmpty)
 import Data.Map (Map)
@@ -277,11 +277,6 @@ data FCMMessage =
     -- by default. On Chrome, currently not supported.
   , _fcmContentAvailable      :: !(Maybe Bool)
 
-    -- | delay_while_idle  Optional, JSON boolean
-    -- When this parameter is set to true, it indicates that the message should
-    -- not be sent until the device becomes active. The default value is false.
-  , _fcmDelayWhileIdle        :: !(Maybe Bool)
-
     -- | time_to_live  Optional, JSON number
     -- This parameter specifies how long (in seconds) the message should be kept in
     -- FCM storage if the device is offline. The maximum time to live supported is
@@ -329,8 +324,20 @@ $(deriveJSON (aesonPrefix snakeCase) { omitNothingFields = True } ''FCMMessage)
 
 
 instance Default FCMMessage where
-  def = FCMMessage Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing Nothing
-
+  def =
+    FCMMessage
+      { _fcmTo = Nothing
+      , _fcmRegistrationIds = Nothing
+      , _fcmCondition = Nothing
+      , _fcmCollapseKey = Nothing
+      , _fcmPriority = Nothing
+      , _fcmContentAvailable = Nothing
+      , _fcmTimeToLive = Nothing
+      , _fcmRestrictedPackageName = Nothing
+      , _fcmDryRun = Nothing
+      , _fcmData = Nothing
+      , _fcmNotification = Nothing
+      }
 
 -- | String specifying the error that occurred when processing the message
 -- for the recipient. The possible values can be found in table 9.
@@ -415,12 +422,16 @@ data FCMMessageResponseResult =
 $(makePrisms ''FCMMessageResponseResult)
 
 instance ToJSON FCMMessageResponseResult where
+  toJSON :: FCMMessageResponseResult -> Value
   toJSON (FCMMessageResponseResultOk    b) = toJSON b
   toJSON (FCMMessageResponseResultError e) = toJSON e
+
+  toEncoding :: FCMMessageResponseResult -> Encoding
   toEncoding (FCMMessageResponseResultOk    b) = toEncoding b
   toEncoding (FCMMessageResponseResultError e) = toEncoding e
 
 instance FromJSON FCMMessageResponseResult where
+  parseJSON :: Value -> Parser FCMMessageResponseResult
   parseJSON o =  (FCMMessageResponseResultOk <$> parseJSON o)
              <|> (FCMMessageResponseResultError <$> parseJSON o)
 
@@ -477,13 +488,16 @@ $(makePrisms ''FCMTopicResponse)
 
 
 instance ToJSON FCMTopicResponse where
+  toJSON :: FCMTopicResponse -> Value
   toJSON (FCMTopicResponseOk    o) = toJSON o
   toJSON (FCMTopicResponseError e) = toJSON e
 
+  toEncoding :: FCMTopicResponse -> Encoding
   toEncoding (FCMTopicResponseOk    o) = toEncoding o
   toEncoding (FCMTopicResponseError e) = toEncoding e
 
 instance FromJSON FCMTopicResponse where
+  parseJSON :: Value -> Parser FCMTopicResponse
   parseJSON o =  (FCMTopicResponseOk <$> parseJSON o)
              <|> (FCMTopicResponseError <$> parseJSON o)
 
@@ -495,13 +509,16 @@ data FCMResponseBody = FCMMessageResponse !FCMMessageResponse
 $(makePrisms ''FCMResponseBody)
 
 instance ToJSON FCMResponseBody where
+  toJSON :: FCMResponseBody -> Value
   toJSON (FCMMessageResponse m) = toJSON m
   toJSON (FCMTopicResponse t)   = toJSON t
 
+  toEncoding :: FCMResponseBody -> Encoding
   toEncoding (FCMMessageResponse m) = toEncoding m
   toEncoding (FCMTopicResponse t)   = toEncoding t
 
 instance FromJSON FCMResponseBody where
+  parseJSON :: Value -> Parser FCMResponseBody
   parseJSON o =  (FCMMessageResponse <$> parseJSON o)
              <|> (FCMTopicResponse <$> parseJSON o)
 

@@ -1,3 +1,4 @@
+{-# LANGUAGE InstanceSigs      #-}
 {-# LANGUAGE OverloadedStrings #-}
 
 
@@ -21,7 +22,6 @@ module FCMClient.Types (
 , FCMPriority(..)
 , fcmBodyLocArgs
 , fcmContentAvailable
-, fcmDelayWhileIdle
 , fcmDryRun
 , fcmPriority
 , fcmTitleLocArgs
@@ -30,8 +30,8 @@ module FCMClient.Types (
 
 
 import Control.Lens
-import Data.Aeson (decode, encode)
-import Data.Aeson.Types as J (FromJSON (parseJSON), ToJSON (toEncoding, toJSON),
+import Data.Aeson (Encoding, decode, encode)
+import Data.Aeson.Types as J (FromJSON (parseJSON), Parser, ToJSON (toEncoding, toJSON),
                               Value (Bool, Number, String))
 import Data.Default.Class (Default (..))
 import Data.List.NonEmpty (nonEmpty)
@@ -39,8 +39,8 @@ import Data.Maybe (fromMaybe)
 import Data.Scientific (Scientific)
 import Data.String (IsString (..))
 import Data.Text (Text)
-import FCMClient.JSON.Types hiding (fcmBodyLocArgs, fcmContentAvailable, fcmDelayWhileIdle,
-                             fcmDryRun, fcmPriority, fcmTitleLocArgs)
+import FCMClient.JSON.Types hiding (fcmBodyLocArgs, fcmContentAvailable, fcmDryRun, fcmPriority,
+                             fcmTitleLocArgs)
 
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
@@ -59,15 +59,18 @@ data FCMLocValue = FCMLocString !Text
                  deriving (Eq, Read, Show, Ord)
 
 instance ToJSON FCMLocValue where
+  toJSON :: FCMLocValue -> Value
   toJSON (FCMLocString x) = toJSON x
   toJSON (FCMLocNumber x) = toJSON x
   toJSON (FCMLocBool x)   = toJSON x
 
+  toEncoding :: FCMLocValue -> Encoding
   toEncoding (FCMLocString x) = toEncoding x
   toEncoding (FCMLocNumber x) = toEncoding x
   toEncoding (FCMLocBool x)   = toEncoding x
 
 instance FromJSON FCMLocValue where
+  parseJSON :: Value -> Parser FCMLocValue
   parseJSON (J.String x) = return $ FCMLocString x
   parseJSON (J.Number x) = return $ FCMLocNumber x
   parseJSON (J.Bool x)   = return $ FCMLocBool x
@@ -77,7 +80,6 @@ instance FromJSON FCMLocValue where
 -- | Shortcut for string localized parameters
 instance IsString FCMLocValue where
   fromString = FCMLocString . T.pack
-
 
 -- | Utility function, Aeson-convert to Text (some JSON string fields are expected to contain JSON).
 aesonTxtPr :: (Applicative f, Choice p, ToJSON a1, FromJSON a)
@@ -90,22 +92,17 @@ aesonTxtPr =
   prism' (fmap encode . nonEmpty)
          (Just . fromMaybe [] . decode . fromMaybe "")
 
-
 -- | Typed lens focused on localized notification body arguments.
 fcmBodyLocArgs :: (Applicative f)
                => ([FCMLocValue] -> f [FCMLocValue])
                -> J.FCMNotification -> f J.FCMNotification
 fcmBodyLocArgs = J.fcmBodyLocArgs . aesonTxtPr
 
-
-
 -- | Typed lens focused on localized notification title arguments.
 fcmTitleLocArgs :: (Applicative f)
                 => ([FCMLocValue] -> f [FCMLocValue])
                 -> J.FCMNotification -> f J.FCMNotification
 fcmTitleLocArgs = J.fcmTitleLocArgs . aesonTxtPr
-
-
 
 -- | Typed lens focused on message priority.
 fcmPriority :: (Applicative f)
@@ -116,8 +113,6 @@ fcmPriority = J.fcmPriority . prism' fcmPriorityToText (Just .textToFcmPriority)
         fcmPriorityToText FCMPriorityHigh   = Just "high"
         textToFcmPriority (Just "high") = FCMPriorityHigh
         textToFcmPriority _             = FCMPriorityNormal
-
-
 
 maybeBoolPr :: (Applicative f)
             => (Bool -> f Bool)
@@ -131,20 +126,11 @@ fcmContentAvailable :: (Applicative f)
                     -> J.FCMMessage -> f J.FCMMessage
 fcmContentAvailable = J.fcmContentAvailable . maybeBoolPr
 
-
--- | Sets delay while idle field when True, sets Nothing when False.
-fcmDelayWhileIdle :: (Applicative f)
-                  => (Bool -> f Bool)
-                  -> J.FCMMessage -> f J.FCMMessage
-fcmDelayWhileIdle = J.fcmDelayWhileIdle . maybeBoolPr
-
-
 -- | Sets dry run field when True, sets Nothing when False.
 fcmDryRun :: (Applicative f)
           => (Bool -> f Bool)
           -> J.FCMMessage -> f J.FCMMessage
 fcmDryRun = J.fcmDryRun . maybeBoolPr
-
 
 -- | Creates default empty notification if missing
 fcmWithNotification :: (Applicative f)
