@@ -34,7 +34,7 @@ main = runWithArgs $ \CliArgs{..} -> do
 
   let sendMessage msg = do
         putStrLn $ (LUTF8.toString . encode) msg
-        res <- fcmCallJSON (UTF8.fromString cliAuthKey) msg
+        res <- fcmCallJSON (UTF8.fromString cliAccessToken) msg
         case res
           of FCMResultSuccess b -> putStrLn $ (LUTF8.toString . encode) b
              FCMResultError   e -> print e
@@ -44,7 +44,7 @@ main = runWithArgs $ \CliArgs{..} -> do
 
         (batchInputConduit cliBatchInput .| parseInputConduit)
           `buf`
-          (callFCMConduit (UTF8.fromString cliAuthKey) .| runInParallel cliBatchConc)
+          (callFCMConduit (UTF8.fromString cliAccessToken) .| runInParallel cliBatchConc)
           `buf`
           (encodeOutputConduit .| batchOutputConduit cliBatchOutput)
 
@@ -81,15 +81,15 @@ encodeOutputConduit =
 
 -- | Convert each input line into a JSON object containing original input and results of the call.
 callFCMConduit :: (MonadIO m, MonadResource m)
-               => BS.ByteString -- ^ authorization key
+               => BS.ByteString -- ^ access token
                -> ConduitT (Either (BS.ByteString,String) (Value, FCMMessage)) (A.Async Value) m ()
-callFCMConduit authKey = CL.mapM $ \input -> liftIO . A.async $
+callFCMConduit accessToken = CL.mapM $ \input -> liftIO . A.async $
   case input
     of Left (i,e)    -> return $ object [ ("type", "ParserError")
                                         , ("error", toJSON e)
                                         , ("input", toJSON (UTF8.toString i))
                                         ]
-       Right (jm, m) -> resToVal jm <$> retrying retPolicy (const shouldRetry) (const $ fcmCallJSON authKey m)
+       Right (jm, m) -> resToVal jm <$> retrying retPolicy (const shouldRetry) (const $ fcmCallJSON accessToken m)
 
   where retPolicy = constantDelay 1000000 <> limitRetries 5
 

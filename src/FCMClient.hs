@@ -27,12 +27,12 @@ import qualified Data.Text.Encoding as T
 -- | Makes an FCM JSON request, expects a JSON response.
 --   https://firebase.google.com/docs/cloud-messaging/http-server-ref#send-downstream
 fcmCallJSON :: (J.ToJSON req)
-            => B.ByteString -- ^ authorization key
+            => B.ByteString -- ^ access token
             -> req -- ^ FCM JSON message, a typed model or a document object, see 'FCMClient.Types'
             -> IO FCMResult
-fcmCallJSON authKey fcmMessage =
+fcmCallJSON accessToken fcmMessage =
   handle (\ (he :: HttpException) -> return $ FCMResultError . FCMClientHTTPError . T.pack . show $ he) $ do
-    hRes <- httpLBS (fcmJSONRequest authKey (J.encode fcmMessage))
+    hRes <- httpLBS (fcmJSONRequest accessToken (J.encode fcmMessage))
     return $ decodeRes (responseBody hRes) (responseStatus hRes)
 
   where decodeRes rb rs | rs == status200 = case J.eitherDecode' rb
@@ -48,13 +48,13 @@ fcmCallJSON authKey fcmMessage =
 
 -- | Constructs an authenticated FCM JSON request, body and additional parameters such as
 --   proxy or http manager can be set for a customized HTTP call.
-fcmJSONRequest :: B.ByteString -- ^ authorization key
+fcmJSONRequest :: B.ByteString -- ^ access token
                -> L.ByteString -- ^ JSON POST data
                -> Request
-fcmJSONRequest authKey jsonBytes =
+fcmJSONRequest accessToken jsonBytes =
   "https://fcm.googleapis.com/fcm/send"
     { method = "POST"
-    , requestHeaders = [ (hAuthorization, "key=" <> authKey)
+    , requestHeaders = [ (hAuthorization, "Bearer " <> accessToken)
                        , (hContentType, "application/json")
                        ]
     , requestBody = RequestBodyLBS jsonBytes

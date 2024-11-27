@@ -17,8 +17,8 @@ import qualified Data.ByteString.Lazy.Char8 as LB
 import qualified Data.Text as T
 import qualified FCMClient.JSON.Types as J
 
-data CliArgs = CliArgs { cliAuthKey :: String
-                       , cliCmd     :: CliCmd
+data CliArgs = CliArgs { cliAccessToken :: String
+                       , cliCmd         :: CliCmd
                        }
 
 data CliJsonBatchArgs = CliJsonBatchArgs { cliBatchInput  :: Maybe FilePath
@@ -30,14 +30,13 @@ data CliCmd = CliCmdSendJsonBatch CliJsonBatchArgs
             | CliCmdSendMessage FCMMessage
 
 
-parseArgs :: Maybe String -- ^ default auth key from shell env
+parseArgs :: Maybe String -- ^ default access token from shell env
           -> Parser CliArgs
-parseArgs maybeAuthKey = CliArgs
+parseArgs maybeAccessToken = CliArgs
   <$> strOption
-      ( long "auth-key"
-     <> short 'k'
-     <> maybe mempty value maybeAuthKey
-     <> help "Auth key, defaults to FCM_AUTH_KEY environmental variable." )
+      ( long "access-token"
+     <> maybe mempty value maybeAccessToken
+     <> help "Access token, defaults to FCM_ACCESS_TOKEN environmental variable." )
   <*> subparser ( command "message" (info (helper <*> parseCliCmdSendMessage)
                                           (progDesc "Send test message."))
 
@@ -210,11 +209,11 @@ parseCliCmdSendMessage = CliCmdSendMessage <$>
 runWithArgs:: (CliArgs -> IO ())
            -> IO ()
 runWithArgs rwa = do
-  maybeAuthKey <- lookupEnv "FCM_AUTH_KEY"
+  maybeAccessToken <- lookupEnv "FCM_ACCESS_TOKEN"
 
-  let opts = info (helper <*> parseArgs maybeAuthKey) ( fullDesc
+  let opts = info (helper <*> parseArgs maybeAccessToken) ( fullDesc
                <> header "Simple FCM CLI client, send a test message or a JSON batch from a file."
-               <> progDesc ("E.g. " <> " fcm-client -k AUTH_KEY message --title Test --to /topics/mytopic --color '#FF0000' -d test")
+               <> progDesc ("E.g. " <> " fcm-client --access-token ACCESS_TOKEN message --title Test --to /topics/mytopic --color '#FF0000' -d test")
                )
 
   execParser opts >>= rwa
